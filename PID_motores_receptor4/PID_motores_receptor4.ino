@@ -1,0 +1,162 @@
+int ibyte;
+int velocidades[2];
+
+int m1a=0;
+int m1r=0;
+int m2a=0;
+int m2r=0;//señal para motores
+
+int Encoder_m1=A0;
+int Encoder_m2=A1;
+int Encoder_m3=A2;
+int Encoder_m4=A3;
+
+int set_point1=A4;
+
+///////////////
+unsigned long lastTime;
+double Input,Input2,Input3,Input4, Output,Output2,Output3,Output4, Setpoint_m1,Setpoint_m2;
+double errSum,errSum2,errSum3,errSum4, lastInput,lastInput2,lastInput3,lastInput4;
+double kp,kp2,kp3,kp4,ki,ki2,ki3,ki4,kd,kd2,kd3,kd4;
+int SampleTime = 20; 
+//////////////
+
+void Compute()
+{
+unsigned long now = millis();
+int timeChange = (now - lastTime);
+if(timeChange>=SampleTime)
+{
+// Calcula todas las variables de errores.
+double error = Setpoint_m1 - Input;
+double error2 = Setpoint_m2- Input2;
+double error3 = Setpoint_m1 - Input3;
+double error4 = Setpoint_m1 - Input4;
+
+errSum += error;
+errSum2 += error2;
+errSum3 += error3;
+errSum4 += error4;
+
+double dInput = (Input - lastInput);
+double dInput2 = (Input2 - lastInput2);
+double dInput3 = (Input3 - lastInput3);
+double dInput4 = (Input4 - lastInput4);
+
+// Calculamos la función de salida del PID.
+Output=  kp * error + ki * errSum - kd * dInput;
+Output2= kp2 * error2 + ki2 * errSum2 - kd2 * dInput2;
+Output3= kp3 * error3 + ki3 * errSum3 - kd3 * dInput3;
+Output4= kp4 * error4 + ki4 * errSum4 - kd4 * dInput4;
+
+//saturacion
+if(Output<0) Output=0;
+if(Output>100) Output=100;
+Output=(Output*255)/100;
+
+if(Output2<0) Output2=0;
+if(Output2>100) Output2=100;
+Output2=(Output2*255)/100;
+
+if(Output3<0) Output3=0;
+if(Output3>100) Output3=100;
+Output3=(Output3*255)/100;
+
+if(Output4<0) Output4=0;
+if(Output4>100) Output4=100;
+Output4=(Output4*255)/100;
+
+// Guardamos el valor de algunas variables para el próximo ciclo de cálculo.
+lastInput = Input;
+lastInput2 = Input2;
+lastInput3 = Input3;
+lastInput4 = Input4;
+
+lastTime = now;
+}
+}
+
+void SetTunings(double Kp, double Ki, double Kd)
+{
+double SampleTimeInSec = ((double)SampleTime)/1000;
+kp = Kp;
+ki = Ki * SampleTimeInSec;
+kd = Kd / SampleTimeInSec;
+}
+
+void SetTunings2(double Kp, double Ki, double Kd)
+{
+double SampleTimeInSec = ((double)SampleTime)/1000;
+kp2 = Kp;
+ki2 = Ki * SampleTimeInSec;
+kd2 = Kd / SampleTimeInSec;
+}
+
+void SetTunings3(double Kp, double Ki, double Kd)
+{
+double SampleTimeInSec = ((double)SampleTime)/1000;
+kp3 = Kp;
+ki3 = Ki * SampleTimeInSec;
+kd3 = Kd / SampleTimeInSec;
+}
+
+void SetTunings4(double Kp, double Ki, double Kd)
+{
+double SampleTimeInSec = ((double)SampleTime)/1000;
+kp4 = Kp;
+ki4 = Ki * SampleTimeInSec;
+kd4 = Kd / SampleTimeInSec;
+}
+
+
+
+///////////////////////////////////////////
+
+void setup() {
+  // initialize both serial ports:
+  Serial.begin(9600);
+  Serial1.begin(9600);
+  //pines motor
+  pinMode(9, OUTPUT);   //m2r
+  pinMode(10, OUTPUT);   //m2a
+  pinMode(11, OUTPUT);   //m1r
+  pinMode(12, OUTPUT);   //m1a
+  
+  pinMode(A5, OUTPUT);
+  digitalWrite(A5, HIGH);
+  pinMode(A6, OUTPUT);
+  digitalWrite(A6, LOW);
+
+  SetTunings3(4, 3, 0.1);
+  SetTunings4(5, 4, 0.1);
+}
+
+void loop() {
+  
+  
+//Asignacion de variables
+Setpoint_m1=map(analogRead(set_point1), 0, 1023, 0, 59);//escalar para maximo 100 equivalente a 255
+Setpoint_m2=map(analogRead(set_point1), 0, 1023, 0, 55);//escalar para maximo 100 equivalente a 255
+
+Input= map(analogRead(Encoder_m1), 0, 1023, 0, 100);
+Input2=map(analogRead(Encoder_m2), 0, 1023, 0, 100);
+Input3=map(analogRead(Encoder_m3), 0, 1023, 0, 100);
+Input4=map(analogRead(Encoder_m4), 0, 1023, 0, 100);
+
+//modelo del movil
+// M1-----M2
+// M3 --- M4
+
+Serial.print((int)Setpoint_m2);
+Serial.print(",");
+Serial.println((int)Input4);
+  
+// Rutina del controlador PID
+Compute();
+m3a=Output3;
+m4a=Output4;
+//ejecucion de pwms
+analogWrite(11,m4a);
+analogWrite(9,m3a);
+//Serial.println((int)m2a);
+}
